@@ -31,8 +31,8 @@ flags.DEFINE_string('train_dir', './experiments',
 flags.DEFINE_float('lr', 0.0001, 'Learning rate.')
 flags.DEFINE_integer('batch', 64, 'Batch size.')
 # flags.DEFINE_string('dataset', 'cifar10', 'Data to train on.')
-# flags.DEFINE_string('dataset', 'Solar_2009', 'Data to train on.')
-flags.DEFINE_string('dataset', 'Wind_2007', 'Data to train on.')
+flags.DEFINE_string('dataset', 'Solar_2009', 'Data to train on.')
+# flags.DEFINE_string('dataset', 'Wind_2007', 'Data to train on.')
 
 flags.DEFINE_integer('save_kimg', 64, 'Training duration in samples.')
 flags.DEFINE_integer('total_kimg', 1 << 14, 'Training duration in samples.')
@@ -237,6 +237,13 @@ class ModelPro(Model):
         phase_start = schedule.phase_index(resume_step * batch)
         checkpoint_dir = lambda stage: os.path.join(self.checkpoint_dir, 'stage_%d' % stage)
 
+        def load_training_data():
+            with dataset.graph.as_default():
+                train_data = dataset.train.batch(batch)
+                train_data = train_data.prefetch(64)
+                train_data = iter(as_iterator(train_data, dataset.sess))
+            return train_data
+
         for phase in schedule.schedule[phase_start:]:
             print('Resume step %d  Phase %dK:%dK  LOD %d:%d' %
                   (resume_step,
@@ -247,10 +254,7 @@ class ModelPro(Model):
             def lod_fn():
                 return phase.lod(self.nimg_cur)
 
-            with dataset.graph.as_default():
-                train_data = dataset.train.batch(batch)
-                train_data = train_data.prefetch(64)
-                train_data = iter(as_iterator(train_data, dataset.sess))
+            train_data = load_training_data()
 
             with tf.Graph().as_default():
                 global_step = tf.train.get_or_create_global_step()
@@ -289,9 +293,18 @@ class ModelPro(Model):
                     self.sess = sess
                     self.nimg_cur = batch * self.tf_sess.run(global_step)
                     while not sess.should_stop():
-                        self.train_step(train_data, lod_fn(), ops)
-                        resume_step = self.tf_sess.run(global_step)
-                        self.nimg_cur = batch * resume_step
+                        try:
+                            self.train_step(train_data, lod_fn(), ops)
+                            resume_step = self.tf_sess.run(global_step)
+                            self.nimg_cur = batch * resume_step
+                        except tf.errors.OutOfRangeError:
+                            print('-' * 80)
+                            print("Reload Training Dataset")
+                            print('-' * 80)
+                            train_data = load_training_data()
 
+                            self.train_step(train_data, lod_fn(), ops)
+                            resume_step = self.tf_sess.run(global_step)
+                            self.nimg_cur = batch * resume_step
     def add_summaries(self, dataset, ops, lod_fn, **kwargs):
         pass  # No default image summaries
