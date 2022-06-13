@@ -199,13 +199,23 @@ class LAG(SRESPro):
 
 def main(argv):
     del argv  # Unused.
-    dataset = data.get_dataset(FLAGS.dataset)
+    # dataset = data.get_dataset(FLAGS.dataset)
+    if FLAGS.dataset == 'Wind_2007':
+        root = '/home/guiyli/Documents/DataSet/Wind/2007/u_v'
+        # root = '/home/guiyli/DataSet/Wind/2007/u_v'
+    if FLAGS.dataset == 'Solar_2009':
+        root = '/home/guiyli/Documents/DataSet/NSRDB/500X500/2009/grid1/dni_dhi'
+        # root = '/home/guiyli/DataSet/Solar/2009/dni_dhi'
+    dataset = data.get_dataset(dataset_name=FLAGS.dataset, data_dir=root, data_size=256, channel=2)
+
     schedule = TrainSchedule(2, FLAGS.scale, FLAGS.transition_kimg, FLAGS.training_kimg, FLAGS.total_kimg)
     if FLAGS.memtest:
         schedule.schedule = schedule.schedule[-2:]
 
     model = LAG(
-        os.path.join(FLAGS.train_dir, dataset.name),
+        # os.path.join(FLAGS.train_dir, dataset.name),
+        os.path.join(FLAGS.train_dir, FLAGS.dataset),
+
         lr=FLAGS.lr,
         batch=FLAGS.batch,
         lod_min=1,
@@ -233,15 +243,18 @@ if __name__ == '__main__':
     flags.DEFINE_integer('filters', 256, 'Filter size of first convolution.')
     flags.DEFINE_integer('filters_min', 64, 'Minimum filter size of convolution.')
     flags.DEFINE_integer('noise_dim', 64, 'Number of noise dimensions to concat to lores.')
-    flags.DEFINE_integer('transition_kimg', 2048, 'Number of images during transition (in kimg).')
-    flags.DEFINE_integer('training_kimg', 2048, 'Number of images during between transitions (in kimg).')
+    # flags.DEFINE_integer('transition_kimg', 2048, 'Number of images during transition (in kimg).')
+    # flags.DEFINE_integer('training_kimg', 2048, 'Number of images during between transitions (in kimg).')
+    flags.DEFINE_integer('transition_kimg', 118, 'Number of images during transition (in kimg).')
+    flags.DEFINE_integer('training_kimg', 118, 'Number of images during between transitions (in kimg).')
     flags.DEFINE_integer('ttur', 4, 'How much faster D is trained.')
     flags.DEFINE_float('wass_target', 1, 'Wasserstein gradient penalty target value.')
     flags.DEFINE_float('weight_avg', 0.999, 'Weight averaging.')
     flags.DEFINE_float('mse_weight', 10, 'Amount of mean square error loss for G.')
-    flags.DEFINE_bool('reset', False, 'Retrain from the start.')
+    flags.DEFINE_bool('reset', True, 'Retrain from the start.')
     flags.DEFINE_bool('memtest', False, 'Test if the parameters fit in memory (start at last stage).')
-    FLAGS.set_default('batch', 16)
+    # FLAGS.set_default('batch', 16)
+    FLAGS.set_default('batch', 4)
     FLAGS.set_default('lr', 0.001)
     FLAGS.set_default('total_kimg', 0)
     app.run(main)
