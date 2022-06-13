@@ -27,8 +27,110 @@ import tensorflow as tf
 
 from libml import utils
 
-_DATA_CACHE = None
-DATA_DIR = os.environ['ML_DATA']
+# _DATA_CACHE = None
+# DATA_DIR = os.environ['ML_DATA']
+
+class LagDataLoader:
+    def __init__(self, data_name, data_dir, data_size, channel):
+        self.data_name = data_name
+        self.data_dir = data_dir
+        self.data_size = data_size
+        self.channel = channel
+        self.colors = channel
+        self.height = data_size
+        self.width = data_size
+
+
+        dataSetName_train = self.data_name + '-train.tfrecord'
+        dataSetName_test = self.data_name + '-test.tfrecord'
+        self.train = self.parse_tfrecord([os.path.join(data_dir, dataSetName_train)])
+        self.test = self.parse_tfrecord([os.path.join(data_dir, dataSetName_test)])
+
+        self.graph = None  # TensorFlow graph
+        self.sess = None  # TensorFlow session
+
+    @tf.function
+    def parse_tfrecord(self, filenames, para=4):
+        """
+        Operations:
+            load tfrecord
+            decode float32 image data, then scale from [0,255] to [-1,1]
+            crop / resize / flip / transpose
+            finally get HWC images and corresponding labels
+        :Args:
+            filenames: must be a list!!!!!
+        Return:
+            dict(x=x, label=label) x:HWC
+        """
+
+        # the number elements to process asynchronously in parallel
+        para *= 4 * max(1, len(utils.get_available_gpus()))
+        # filenames: tfrecord format dataset file path
+        filenames = sorted(sum([glob.glob(x) for x in filenames], []))
+        if not filenames:
+            raise ValueError('Empty dataset')
+        dataset = tf.data.TFRecordDataset(filenames)
+        dataset = dataset.map(self.record_parse_fn, num_parallel_calls=para)
+
+        return dataset.map(self.iterator_dict)
+
+    @tf.function
+    def record_parse_fn(self, record):
+        """
+        parse each element in the tfrecord dataset file
+
+        decode:
+            image(float), original_lowest(float), original_highest(float), shape(Int64), label(byte)
+
+        scale image from [original_lowest,original_highest] to [-1,1] for training
+
+        Return: image, label
+        """
+        image_feature_description = {
+            'data': tf.io.VarLenFeature(tf.float32),
+            'label': tf.io.FixedLenFeature([], tf.string, default_value=''),
+            'shape': tf.io.FixedLenFeature([3], tf.int64, default_value=[0, 0, 0]),
+        }
+
+        features = tf.io.parse_single_example(
+            record, features=image_feature_description
+        )
+
+        image = tf.sparse_tensor_to_dense(features['data'], default_value=0.0)
+        label = features['label']
+        shape = features['shape']
+        image = tf.reshape(image, shape) # HWC
+        size = [self.data_size,self.data_size]
+        if not size == shape[:-1]:
+            image = tf.image.resize(
+                    image,
+                    size,
+                    method=tf.image.ResizeMethod.BICUBIC
+                )
+        image = tf.transpose(image,perm=[2,0,1]) # CHW
+        original_lowest = tf.math.reduce_min(image)
+        original_highest = tf.math.reduce_max(image)
+
+        # stretch from [original_lowest, original_highest] to [-1,1] for training
+        image = tf.math.add(
+            tf.math.divide(
+                tf.math.multiply(tf.math.add(image, -original_lowest), 2.0),
+                tf.math.maximum(tf.math.add(original_highest, -original_lowest), 1e-5),
+            ),
+            -1.0,
+        )
+
+        return image, label, shape, original_lowest, original_highest
+
+    @staticmethod
+    def iterator_dict(x, label, shape, original_lowest, original_highest):
+        return dict(
+            x=x,
+            label=label,
+            shape=shape,
+            original_lowest=original_lowest,
+            original_highest=original_highest,
+        )
 
 
 class DataSet:
@@ -226,7 +328,8 @@ class DataSetAll(DataSet):
 
 
 def as_iterator(data, sess):
-    it = data.make_one_shot_iterator().get_next()
+    # it = data.make_one_shot_iterator().get_next()
+    it = tf.compat.v1.data.make_one_shot_iterator(data).get_next()
 
     def iterator():
         while 1:
@@ -235,10 +338,12 @@ def as_iterator(data, sess):
     return iterator()
 
 
-def get_dataset(dataset_name):
+# def get_dataset(dataset_name):
+def get_dataset(dataset_name, data_dir, data_size, channel):
     g = tf.Graph()
     with g.as_default():
-        dataset = _DATASETS[dataset_name]()
+        # dataset = _DATASETS[dataset_name]()
+        dataset = LagDataLoader(dataset_name, data_dir, data_size, channel)
         dataset.graph = g
         dataset.sess = tf.Session()
         return dataset
