@@ -55,9 +55,12 @@ def get_ops(dataset):
 def get_samples_indexes(txt_list):
     l = []
     for v in txt_list:
-        if '-' in v:
-            l.extend(list(range(int(v.split('-')[0]), int(v.split('-')[1]) + 1)))
-        else:
+        try:
+            if '-' in v:
+                l.extend(list(range(int(v.split('-')[0]), int(v.split('-')[1]) + 1)))
+            else:
+                l.append(int(v))
+        except:
             l.append(int(v))
     return sorted(set(l))
 
@@ -91,25 +94,39 @@ def main(args):
     del args
     dataset_name = FLAGS.dataset or os.path.basename(os.path.dirname(os.path.dirname(FLAGS.ckpt)))
     try:
-        dataset = data.get_dataset(dataset_name)
+        # dataset = data.get_dataset(dataset_name)
+        if FLAGS.dataset == 'Wind_2007':
+            root = '/home/guiyli/Documents/DataSet/Wind/2007/u_v'
+            # root = '/home/guiyli/DataSet/Wind/2007/u_v'
+        if FLAGS.dataset == 'Solar_2009':
+            root = '/home/guiyli/Documents/DataSet/NSRDB/500X500/2009/grid1/dni_dhi'
+            # root = '/home/guiyli/DataSet/Solar/2009/dni_dhi'
+        dataset = data.get_dataset(dataset_name=FLAGS.dataset, data_dir=root, data_size=256, channel=2)
     except KeyError:
         dataset = data.get_dataset('lsun_' + dataset_name)
     ops = get_ops(dataset)
     images = load_hires(dataset, get_samples_indexes(FLAGS.samples))
     image_grid = get_candidates(ops, images)
-    img = utils.images_to_grid(image_grid)
-    output_file = os.path.abspath(FLAGS.save_to)
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    open(output_file, 'wb').write(utils.to_png(img))
-    print('Saved', output_file)
+    img = utils.images_to_grid(image_grid) # HWC
+    # output_file = os.path.abspath(FLAGS.save_to)
+    # os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    # open(output_file, 'wb').write(utils.to_png(img))
+    # print('Saved', output_file)
+    _, _, c = img.shape
+    for i in range(c):
+        output_file = os.path.abspath('test'+str(i)+'.png')
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        open(output_file, 'wb').write(utils.to_png(img[:,:,i][:, :, np.newaxis]))
+        print('Saved', output_file)
 
 
 if __name__ == '__main__':
     utils.setup_tf()
     flags.DEFINE_string('save_to', 'test.png', 'Path were to save candidates.')
-    flags.DEFINE_string('ckpt', '', 'Path where to load the trained lag model.')
-    flags.DEFINE_list('samples', [], 'Index of samples to retrieve.')
+    # flags.DEFINE_string('ckpt', '', 'Path where to load the trained lag model.')
+    flags.DEFINE_string('ckpt', 'experiments/Solar_2009/average32X/LAG_batch4_blocks8_filters256_filters_min64_lod_min1_lr0.001_mse_weight10.0_noise_dim64_training_kimg118_transition_kimg118_ttur4_wass_target1.0_weight_avg0.999', 'Path where to load the trained lag model.')
+    flags.DEFINE_list('samples', [0,3], 'Index of samples to retrieve.')
     flags.DEFINE_integer('ncand', 16, 'Number of candidates to generate per image.')
-    FLAGS.set_default('dataset', '')  # To override model dataset.
-    FLAGS.set_default('batch', 64)
+    # FLAGS.set_default('dataset', '')  # To override model dataset.
+    # FLAGS.set_default('batch', 64)
     app.run(main)
