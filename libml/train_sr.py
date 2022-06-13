@@ -27,7 +27,8 @@ from libml import utils, layers
 from libml.data import as_iterator
 from libml.train import Model, FLAGS, ModelPro
 
-flags.DEFINE_integer('scale', 4, 'Scale by which to increase resolution.')
+# flags.DEFINE_integer('scale', 4, 'Scale by which to increase resolution.')
+flags.DEFINE_integer('scale', 32, 'Scale by which to increase resolution.')
 flags.DEFINE_string('downscaler', 'average', 'Downscaling method [average, bicubic].')
 
 

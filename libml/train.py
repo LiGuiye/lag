@@ -30,7 +30,10 @@ flags.DEFINE_string('train_dir', './experiments',
                     'Folder where to save training data.')
 flags.DEFINE_float('lr', 0.0001, 'Learning rate.')
 flags.DEFINE_integer('batch', 64, 'Batch size.')
-flags.DEFINE_string('dataset', 'cifar10', 'Data to train on.')
+# flags.DEFINE_string('dataset', 'cifar10', 'Data to train on.')
+# flags.DEFINE_string('dataset', 'Solar_2009', 'Data to train on.')
+flags.DEFINE_string('dataset', 'Wind_2007', 'Data to train on.')
+
 flags.DEFINE_integer('save_kimg', 64, 'Training duration in samples.')
 flags.DEFINE_integer('total_kimg', 1 << 14, 'Training duration in samples.')
 flags.DEFINE_integer('report_kimg', 64, 'Training duration in samples.')
@@ -257,7 +260,7 @@ class ModelPro(Model):
                                  lod_max=schedule.lod_max,
                                  total_steps=schedule.total_nimg // batch,
                                  **self.params)
-                self.add_summaries(dataset, ops, lod_fn, **self.params)
+                # self.add_summaries(dataset, ops, lod_fn, **self.params)
                 stop_hook = tf.train.StopAtStepHook(last_step=phase.nimg_stop // batch)
                 report_hook = utils.HookReport(FLAGS.report_kimg << 10, batch)
                 config = tf.ConfigProto()
