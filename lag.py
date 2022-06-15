@@ -162,13 +162,20 @@ class LAG(SRESPro):
         loss_disc = loss_dreal + loss_dfake + loss_gp
         loss_gen = loss_gfake + mse_weight * loss_gmse
 
-        utils.HookReport.log_tensor(loss_dreal, 'dreal')
-        utils.HookReport.log_tensor(loss_dfake, 'dfake')
-        utils.HookReport.log_tensor(loss_gp, 'gp')
-        utils.HookReport.log_tensor(loss_gfake, 'gfake')
-        utils.HookReport.log_tensor(loss_gmse, 'gmse')
-        utils.HookReport.log_tensor(tf.sqrt(mse_ema) * 127.5, 'rmse_ema')
-        utils.HookReport.log_tensor(lod, 'lod')
+        utils.HookReport.log_tensor(loss_dreal, 'Loss_D/dreal')
+        utils.HookReport.log_tensor(loss_dfake, 'Loss_D/dfake')
+        utils.HookReport.log_tensor(loss_gp, 'Loss_D/gp')
+        utils.HookReport.log_tensor(loss_disc, 'Loss_D/loss')
+
+        utils.HookReport.log_tensor(loss_gfake, 'Loss_G/gfake')
+        utils.HookReport.log_tensor(loss_gmse, 'Loss_G/gmse')
+        utils.HookReport.log_tensor(loss_gen, 'Loss_G/loss')
+
+        # utils.HookReport.log_tensor(tf.sqrt(mse_ema) * 127.5, 'rmse_ema')
+        utils.HookReport.log_tensor(tf.sqrt(mse_ema), 'training_batch_rmse_ema')
+        utils.HookReport.log_tensor(lod, 'lod/lod')
+        utils.HookReport.log_tensor(tf.convert_to_tensor(lod_start), 'lod/lod_start')
+        utils.HookReport.log_tensor(tf.convert_to_tensor(lod_stop), 'lod/lod_stop')
 
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
@@ -245,8 +252,10 @@ if __name__ == '__main__':
     flags.DEFINE_integer('noise_dim', 64, 'Number of noise dimensions to concat to lores.')
     # flags.DEFINE_integer('transition_kimg', 2048, 'Number of images during transition (in kimg).')
     # flags.DEFINE_integer('training_kimg', 2048, 'Number of images during between transitions (in kimg).')
-    flags.DEFINE_integer('transition_kimg', 118, 'Number of images during transition (in kimg).')
-    flags.DEFINE_integer('training_kimg', 118, 'Number of images during between transitions (in kimg).')
+    # Solar_2009 epoch 20: 79k epoch 10: 39 k
+    # Wind_2007 epoch 20: 118k
+    flags.DEFINE_integer('transition_kimg', 4, 'Number of images during transition (in kimg).')
+    flags.DEFINE_integer('training_kimg', 4, 'Number of images during between transitions (in kimg).')
     flags.DEFINE_integer('ttur', 4, 'How much faster D is trained.')
     flags.DEFINE_float('wass_target', 1, 'Wasserstein gradient penalty target value.')
     flags.DEFINE_float('weight_avg', 0.999, 'Weight averaging.')
