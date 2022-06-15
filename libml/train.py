@@ -16,7 +16,7 @@
 import json
 import os.path
 import shutil
-
+import numpy as np
 import tensorflow as tf
 from absl import flags
 from easydict import EasyDict
@@ -36,7 +36,9 @@ flags.DEFINE_string('dataset', 'Solar_2009', 'Data to train on.')
 
 flags.DEFINE_integer('save_kimg', 64, 'Training duration in samples.')
 flags.DEFINE_integer('total_kimg', 1 << 14, 'Training duration in samples.')
-flags.DEFINE_integer('report_kimg', 64, 'Training duration in samples.')
+# flags.DEFINE_integer('report_kimg', 64, 'Training duration in samples.')
+flags.DEFINE_integer('report_kimg', 1, 'Training duration in samples.')
+
 flags.DEFINE_bool('log_device_placement', False, 'For debugging purpose.')
 
 FLAGS = flags.FLAGS
@@ -264,7 +266,7 @@ class ModelPro(Model):
                                  lod_max=schedule.lod_max,
                                  total_steps=schedule.total_nimg // batch,
                                  **self.params)
-                # self.add_summaries(dataset, ops, lod_fn, **self.params)
+                self.add_summaries(dataset, ops, lod_fn, **self.params)
                 stop_hook = tf.train.StopAtStepHook(last_step=phase.nimg_stop // batch)
                 report_hook = utils.HookReport(FLAGS.report_kimg << 10, batch)
                 config = tf.ConfigProto()
@@ -284,6 +286,7 @@ class ModelPro(Model):
                                                   {x: x for x in self.stage_scopes(phase.lod_stop - 1)})
 
                 with tf.train.MonitoredTrainingSession(
+                        summary_dir=self.summary_dir,
                         checkpoint_dir=checkpoint_dir(phase.lod_stop),
                         config=config,
                         hooks=[stop_hook],
@@ -306,5 +309,6 @@ class ModelPro(Model):
                             self.train_step(train_data, lod_fn(), ops)
                             resume_step = self.tf_sess.run(global_step)
                             self.nimg_cur = batch * resume_step
+                print(np.sum([np.prod(v.shape) for v in tf.trainable_variables()]))
     def add_summaries(self, dataset, ops, lod_fn, **kwargs):
         pass  # No default image summaries
