@@ -212,7 +212,11 @@ def main(argv):
         # root = '/home/guiyli/DataSet/Wind/2007/u_v'
     if FLAGS.dataset == 'Solar_2009':
         root = '/home/guiyli/Documents/DataSet/NSRDB/500X500/2009/grid1/dni_dhi'
-        # root = '/home/guiyli/DataSet/Solar/2009/dni_dhi'
+    if FLAGS.dataset == 'Solar_09-13':
+        root = '/home/guiyli/Documents/DataSet/NSRDB/500X500'
+    if FLAGS.dataset == 'Wind_07-10':
+        root = '/home/guiyli/Documents/GANs/DataSet'
+
     dataset = data.get_dataset(dataset_name=FLAGS.dataset, data_dir=root, data_size=256, channel=2)
 
     schedule = TrainSchedule(2, FLAGS.scale, FLAGS.transition_kimg, FLAGS.training_kimg, FLAGS.total_kimg)
@@ -252,10 +256,12 @@ if __name__ == '__main__':
     flags.DEFINE_integer('noise_dim', 64, 'Number of noise dimensions to concat to lores.')
     # flags.DEFINE_integer('transition_kimg', 2048, 'Number of images during transition (in kimg).')
     # flags.DEFINE_integer('training_kimg', 2048, 'Number of images during between transitions (in kimg).')
-    # Solar_2009 epoch 20: 79k epoch 10: 39 k
+    # Solar_2009 epoch 20: 74k epoch 10: 37 k
+    # Solar_09-13 12294 images, epoch 10: 120k
     # Wind_2007 epoch 20: 118k
-    flags.DEFINE_integer('transition_kimg', 4, 'Number of images during transition (in kimg).')
-    flags.DEFINE_integer('training_kimg', 4, 'Number of images during between transitions (in kimg).')
+    # Wind_07-10 13158 images epoch 10: 130k
+    flags.DEFINE_integer('transition_kimg', 37, 'Number of images during transition (in kimg).')
+    flags.DEFINE_integer('training_kimg', 37, 'Number of images during between transitions (in kimg).')
     flags.DEFINE_integer('ttur', 4, 'How much faster D is trained.')
     flags.DEFINE_float('wass_target', 1, 'Wasserstein gradient penalty target value.')
     flags.DEFINE_float('weight_avg', 0.999, 'Weight averaging.')
