@@ -66,14 +66,16 @@ def get_samples_indexes(txt_list):
 
 
 def get_candidates(ops, images):
+    np.save("real_50x2x256x256.npy", images)
     batch = FLAGS.batch
     lores = np.concatenate([ops.lores(images[x:x + batch]) for x in range(0, images.shape[0], batch)], axis=0)
     hires = np.concatenate([ops.hires(lores[x:x + batch]) for x in range(0, images.shape[0], batch)], axis=0)
+    np.save("low_50x2x256x256.npy", hires)
     zoomed = np.stack([np.concatenate([ops.sres(lores[x:x + batch], y / (FLAGS.ncand - 1))
                                        for x in range(0, images.shape[0], batch)], axis=0)
                        for y in trange(FLAGS.ncand, leave=False, desc='Generate')], axis=1)
+    np.save("fake_50x2x256x256.npy", zoomed[:,0,:,:,:])
     return np.concatenate([images[:, None], hires[:, None], zoomed], axis=1)
-
 
 def load_hires(dataset, indexes):
     indexes = frozenset(indexes)
@@ -83,10 +85,18 @@ def load_hires(dataset, indexes):
 
     with dataset.graph.as_default():
         max_value = np.iinfo(dtypes.int64.as_numpy_dtype).max
-        test_data = tf.data.Dataset.zip((tf.data.Dataset.range(max_value), dataset.test))
-        test_data = test_data.filter(lambda k, v: tf.py_func(match, [k], tf.bool)).map(lambda k, v: v['x'])
+        test_dataset = tf.data.Dataset.zip((tf.data.Dataset.range(max_value), dataset.test))
+        test_dataset = test_dataset.filter(lambda k, v: tf.py_func(match, [k], tf.bool))
+
+        test_data_label = test_dataset.map(lambda k, v: v['label'])
+        test_data_label = test_data_label.batch(len(indexes)).make_one_shot_iterator().get_next()
+
+        test_data = test_dataset.map(lambda k, v: v['x'])
         test_data = test_data.batch(len(indexes)).make_one_shot_iterator().get_next()
+
         with tf.Session() as sess_data:
+            test_data_labels = sess_data.run(test_data_label)
+            print(test_data_labels)
             return sess_data.run(test_data)
 
 
@@ -101,6 +111,8 @@ def main(args):
         if FLAGS.dataset == 'Solar_2009':
             root = '/home/guiyli/Documents/DataSet/NSRDB/500X500/2009/grid1/dni_dhi'
             # root = '/home/guiyli/DataSet/Solar/2009/dni_dhi'
+        if FLAGS.dataset == 'Solar_09-13':
+            root = '/home/guiyli/Documents/DataSet/NSRDB/500X500'
         dataset = data.get_dataset(dataset_name=FLAGS.dataset, data_dir=root, data_size=256, channel=2)
     except KeyError:
         dataset = data.get_dataset('lsun_' + dataset_name)
@@ -121,12 +133,18 @@ def main(args):
 
 
 if __name__ == '__main__':
+    np.random.seed(666)
+    sample_indices = np.random.choice(range(1, 209), 50, replace=False).tolist()
+    print(sample_indices)
+
     utils.setup_tf()
     flags.DEFINE_string('save_to', 'test.png', 'Path were to save candidates.')
     # flags.DEFINE_string('ckpt', '', 'Path where to load the trained lag model.')
-    flags.DEFINE_string('ckpt', 'experiments/Solar_2009/average32X/LAG_batch4_blocks8_filters256_filters_min64_lod_min1_lr0.001_mse_weight10.0_noise_dim64_training_kimg118_transition_kimg118_ttur4_wass_target1.0_weight_avg0.999', 'Path where to load the trained lag model.')
-    flags.DEFINE_list('samples', [0,3], 'Index of samples to retrieve.')
-    flags.DEFINE_integer('ncand', 16, 'Number of candidates to generate per image.')
+    # flags.DEFINE_string('ckpt', 'experiments_test2/Solar_2009/average32X/LAG_batch4_blocks8_filters256_filters_min64_lod_min1_lr0.001_mse_weight10.0_noise_dim64_training_kimg37_transition_kimg37_ttur4_wass_target1.0_weight_avg0.0', 'Path where to load the trained lag model.')
+    flags.DEFINE_string('ckpt', 'experiments_test/Solar_2009/average32X/LAG_batch4_blocks8_filters256_filters_min64_lod_min1_lr0.001_mse_weight10.0_noise_dim64_training_kimg4_transition_kimg4_ttur4_wass_target1.0_weight_avg0.999', 'Path where to load the trained lag model.')
+
+    flags.DEFINE_list('samples', sample_indices, 'Index of samples to retrieve.')
+    flags.DEFINE_integer('ncand', 2, 'Number of candidates to generate per image.')
     # FLAGS.set_default('dataset', '')  # To override model dataset.
     # FLAGS.set_default('batch', 64)
     app.run(main)
