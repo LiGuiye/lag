@@ -105,7 +105,7 @@ class LagDataLoader:
             image = tf.image.resize(
                     image,
                     size,
-                    method=tf.image.ResizeMethod.BICUBIC
+                    method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
                 )
         image = tf.transpose(image,perm=[2,0,1]) # CHW
         original_lowest = tf.math.reduce_min(image)
