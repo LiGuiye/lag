@@ -27,7 +27,6 @@ from libml import utils, layers
 from libml.data import as_iterator
 from libml.train import Model, FLAGS, ModelPro
 
-# flags.DEFINE_integer('scale', 4, 'Scale by which to increase resolution.')
 flags.DEFINE_integer('scale', 32, 'Scale by which to increase resolution.')
 flags.DEFINE_string('downscaler', 'average', 'Downscaling method [average, bicubic].')
 
@@ -139,8 +138,12 @@ class SRESPro(ModelPro, SRES):
             if 'noise' in ops:
                 feed_extra[ops.noise] = 0
             samples = self.make_samples(dataset, ops.y, ops.sres_op, FLAGS.batch, feed_extra=feed_extra)
+
+            # temporal closed for two channel dataset training
+            samples = samples[:,:,0][:,:,np.newaxis]
+
             # Prevent summary scaling, force offset/ratio = 0/1
-            samples[-1, -1] = (-1, 0, 1)
+            # samples[-1, -1] = (-1, 0, 1)
             return samples
 
         samples = tf.py_func(gen_images, [], [tf.float32])
