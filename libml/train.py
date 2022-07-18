@@ -16,6 +16,8 @@
 import json
 import os.path
 import shutil
+import time
+
 import numpy as np
 import tensorflow as tf
 from absl import flags
@@ -32,6 +34,8 @@ flags.DEFINE_float('lr', 0.0001, 'Learning rate.')
 flags.DEFINE_integer('batch', 64, 'Batch size.')
 # flags.DEFINE_string('dataset', 'cifar10', 'Data to train on.')
 flags.DEFINE_string('dataset', 'Solar_2009', 'Data to train on.')
+# flags.DEFINE_string('dataset', 'Solar_09-13', 'Data to train on.')
+# flags.DEFINE_string('dataset', 'Wind_07-10', 'Data to train on.')
 # flags.DEFINE_string('dataset', 'Wind_2007', 'Data to train on.')
 
 flags.DEFINE_integer('save_kimg', 64, 'Training duration in samples.')
@@ -233,6 +237,7 @@ class ModelPro(Model):
         raise NotImplementedError
 
     def train(self, dataset, schedule):
+        start_time = time.time()
         assert isinstance(schedule, TrainSchedule)
         batch = FLAGS.batch
         resume_step = utils.get_latest_global_step_in_subdir(self.checkpoint_dir)
@@ -274,7 +279,7 @@ class ModelPro(Model):
                     config.allow_soft_placement = True
                 if FLAGS.log_device_placement:
                     config.log_device_placement = True
-                config.gpu_options.allow_growth = True
+                config.gpu_options.allow_growth = True # This increase the graphics cards utilization, not limited the number of process to the amount of card that host machine have.
                 config.graph_options.rewrite_options.layout_optimizer = rewriter_config_pb2.RewriterConfig.OFF
 
                 # When growing the model, load the previously trained layer weights.
@@ -292,7 +297,8 @@ class ModelPro(Model):
                         hooks=[stop_hook],
                         chief_only_hooks=[report_hook],
                         save_checkpoint_secs=600,
-                        save_summaries_steps=(FLAGS.save_kimg << 10) // batch) as sess:
+                        # save_summaries_steps=(FLAGS.save_kimg << 10) // batch) as sess:
+                        save_summaries_steps=100) as sess:
                     self.sess = sess
                     self.nimg_cur = batch * self.tf_sess.run(global_step)
                     while not sess.should_stop():
@@ -310,5 +316,11 @@ class ModelPro(Model):
                             resume_step = self.tf_sess.run(global_step)
                             self.nimg_cur = batch * resume_step
                 print(np.sum([np.prod(v.shape) for v in tf.trainable_variables()]))
+
+        finish_time = time.time() - start_time
+        total_time_print = 'Training Finished. Took {:.4f} minutes or {:.4f} hours to complete.'.format(
+            finish_time / 60, finish_time / 3600
+        )
+        print(total_time_print)
     def add_summaries(self, dataset, ops, lod_fn, **kwargs):
         pass  # No default image summaries
